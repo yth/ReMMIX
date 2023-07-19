@@ -1,13 +1,11 @@
-#[allow(unused_imports)] use std::alloc::{alloc, dealloc, Layout};
+use std::alloc::{alloc, dealloc, Layout};
 
 // The Machine
-#[allow(dead_code)]
 pub const GENERAL_PURPOSE_REGISTER_COUNT: u32 = 256;
 pub const MEMORY_SIZE: u32 = MAX_TTRA as u32; // 4 GB of main memory
 
 pub type Register = u64;
 
-#[allow(dead_code)]
 pub struct MmixMachine {
     pub general_purpose_registers: [Register; GENERAL_PURPOSE_REGISTER_COUNT as usize],
     pub special_purpose_registers: [Register; 32],
@@ -82,12 +80,7 @@ pub struct Instruction {
 }
 
 // Useful Constants
-#[allow(dead_code)]
-pub const MAX_BYTE: u8 = 255;
-#[allow(dead_code)]
-pub const MAX_WYDE: u16 = 65535;
-#[allow(dead_code)]
-pub const MAX_TTRA: u32 = 4294967295;
-#[allow(dead_code)]
-pub const MAX_OCTA: u64 = 18446744073709551615;
-
+#[allow(dead_code)] pub const MAX_BYTE: u8 = 255;
+#[allow(dead_code)] pub const MAX_WYDE: u16 = 65535;
+#[allow(dead_code)] pub const MAX_TTRA: u32 = 4294967295;
+#[allow(dead_code)] pub const MAX_OCTA: u64 = 18446744073709551615;
