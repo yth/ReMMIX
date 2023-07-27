@@ -205,8 +205,8 @@ mod unittests {
 
         let prog = vec![&instruction, &instruction];
 
-        let res = prog.iter().fold(m, |m, i| apply(m, i));
+        let m = prog.iter().fold(m, |m, i| apply(m, i));
 
-        assert_eq!(res.gp_regs[0], 2);
+        assert_eq!(m.gp_regs[0], 2);
     }
 }
