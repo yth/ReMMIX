@@ -3,8 +3,8 @@ mod mmix;
 fn main() {
     #[allow(unused_mut)]
     let mut my_computer = mmix::MmixMachine::new();
-    println!("{:?}", my_computer.general_purpose_registers.len());
-    println!("{:?}", my_computer.special_purpose_registers.len());
+    println!("{:?}", my_computer.gp_regs.len());
+    println!("{:?}", my_computer.sp_regs.len());
     println!("{:?}", mmix::MEMORY_SIZE);
 
     {
