@@ -26,8 +26,8 @@ impl MmixMachine {
         }
     }
 
-    pub fn apply(&mut self, instruction: &Instruction ) -> () {
-        apply(self, instruction);
+    pub fn apply<'a>(&'a mut self, instruction: &'a Instruction) -> &mut Self {
+        return apply(self, instruction);
     }
 }
 
@@ -227,5 +227,20 @@ mod unittests {
         machine.apply(&instruction);
 
         assert_eq!(machine.gp_regs[0], 1);
+    }
+
+    #[test]
+    fn mmix_machine_apply_add_immediate_1_chaining() {
+        let mut machine = MmixMachine::new();
+        let instruction = Instruction {
+            op: OpCode::ADDU_I,
+            x: 0,
+            y: 0,
+            z: 1,
+        };
+
+        machine.apply(&instruction).apply(&instruction);
+
+        assert_eq!(machine.gp_regs[0], 2);
     }
 }
