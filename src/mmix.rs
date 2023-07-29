@@ -25,6 +25,10 @@ impl MmixMachine {
             }
         }
     }
+
+    pub fn apply(&mut self, instruction: &Instruction ) -> () {
+        apply(self, instruction);
+    }
 }
 
 impl Drop for MmixMachine {
@@ -208,5 +212,20 @@ mod unittests {
         let m = prog.iter().fold(m, |m, i| apply(m, i));
 
         assert_eq!(m.gp_regs[0], 2);
+    }
+
+    #[test]
+    fn mmix_machine_apply_add_immediate_1() {
+        let mut machine = MmixMachine::new();
+        let instruction = Instruction {
+            op: OpCode::ADDU_I,
+            x: 0,
+            y: 0,
+            z: 1,
+        };
+
+        machine.apply(&instruction);
+
+        assert_eq!(machine.gp_regs[0], 1);
     }
 }
