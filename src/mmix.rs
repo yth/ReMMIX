@@ -26,6 +26,7 @@ impl MmixMachine {
         }
     }
 
+    #[allow(dead_code)]
     pub fn apply<'a>(&'a mut self, instruction: &'a Instruction) -> &mut Self {
         return apply(self, instruction);
     }
@@ -128,27 +129,59 @@ pub enum OpCode {
     ADDU16   = 0x3E,
     ADDU16_I = 0x3F,
     // More to come
+    // ...
+    LDB      = 0x80, // Load Instructions
+    LDB_I    = 0x81,
+    LDBU     = 0x82,
+    LDBU_I   = 0x83,
+    LDW      = 0x84,
+    LDW_I    = 0x85,
+    LDWU     = 0x86,
+    LDWU_I   = 0x87,
+    LDT      = 0x88,
+    LDT_I    = 0x89,
+    LDTU     = 0x8A,
+    LDTU_I   = 0x8B,
+    LDO      = 0x8C,
+    LDO_I    = 0x8D,
+    LDOU     = 0x8E,
+    LDOU_I   = 0x8F,
+
+    // More to come
 }
 
 // Machine Instructions
-#[allow(dead_code)]
 pub struct Instruction {
-    op: OpCode,
-    x: u8,
-    y: u8,
-    z: u8
+    pub op: OpCode,
+    pub x: u8,
+    pub y: u8,
+    pub z: u8
 }
 
 // Useful Constants
-#[allow(dead_code)] pub const MAX_BYTE: u8 = 255;
-#[allow(dead_code)] pub const MAX_WYDE: u16 = 65535;
-#[allow(dead_code)] pub const MAX_TTRA: u32 = 4294967295;
-#[allow(dead_code)] pub const MAX_OCTA: u64 = 18446744073709551615;
+#[allow(dead_code)] pub const MAX_NYBB: u8 = 15; // 4 bits, 1/2 byte
+#[allow(dead_code)] pub const MAX_BYTE: u8 = 255; // 8 bits, 1 byte
+#[allow(dead_code)] pub const MAX_WYDE: u16 = 65_535; // 16 bits, 2 bytes
+#[allow(dead_code)] pub const MAX_TTRA: u32 = 4294_967_295; // 32 bits, 4 bytes
+#[allow(dead_code)] pub const MAX_OCTA: u64 = 18_446_744_073_709_551_615; // 64 bits, 8 bytes
+
+#[allow(dead_code)] pub const MAX_S_NYBB: i8 = 7;
+#[allow(dead_code)] pub const MAX_S_BYTE: i8 = 127;
+#[allow(dead_code)] pub const MAX_S_WYDE: i16 = 32_767;
+#[allow(dead_code)] pub const MAX_S_TTRA: i32 = 2_147_483_647;
+#[allow(dead_code)] pub const MAX_S_OCTA: i64 = 9_223_372_036_854_775_807;
+
+#[allow(dead_code)] pub const MIN_S_NYBB: i8 = -8;
+#[allow(dead_code)] pub const MIN_S_BYTE: i8 = -128;
+#[allow(dead_code)] pub const MIN_S_WYDE: i16 = -32_768;
+#[allow(dead_code)] pub const MIN_S_TTRA: i32 = -2_147_483_648;
+#[allow(dead_code)] pub const MIN_S_OCTA: i64 = -9_223_372_036_854_775_808;
 
 #[allow(dead_code)]
 pub fn apply<'a>(machine: &'a mut MmixMachine, instruction: &'a Instruction) -> &'a mut MmixMachine {
     match instruction.op {
         OpCode::ADDU_I => return apply_ADDU_I(machine, instruction),
+        OpCode::LDB    => return apply_LDB(machine, instruction),
         _ => panic!("Not implemented!"),
     }
 }
@@ -161,11 +194,28 @@ fn apply_ADDU_I<'a>(m: &'a mut MmixMachine, i: &'a Instruction) -> &'a mut MmixM
     return m;
 }
 
+#[allow(dead_code)]
+#[allow(non_snake_case)]
+fn apply_LDB<'a>(m: &'a mut MmixMachine, i: &'a Instruction) -> &'a mut MmixMachine {
+    let Y = m.gp_regs[i.y as usize];
+    let Z = m.gp_regs[i.z as usize];
+    let A = Y.wrapping_add(Z) as usize;
+
+    let slice = unsafe { std::slice::from_raw_parts_mut(m.memory, MEMORY_SIZE as usize)};
+
+    m.gp_regs[i.x as usize] = slice[A] as i8 as i64 as u64;
+
+    println!("A = {}", slice[A]);
+
+    return m;
+}
+
 #[cfg(test)]
 
 mod unittests {
     use super::*;
 
+    // Test for working with MmixMachines and Instructions
     #[test]
     fn apply_add_immediate_1() {
         let mut machine = MmixMachine::new();
@@ -242,5 +292,61 @@ mod unittests {
         machine.apply(&instruction).apply(&instruction);
 
         assert_eq!(machine.gp_regs[0], 2);
+    }
+
+    // Tests for Load Instructions
+    #[test]
+    fn ldb_simple_test() {
+        let mut machine = MmixMachine::new();
+        let instruction = Instruction {
+            op: OpCode::LDB,
+            x: 0,
+            y: 0,
+            z: 0,
+        };
+
+        machine.apply(&instruction);
+        assert_eq!(machine.gp_regs[0], 0);
+    }
+
+    #[test]
+    fn ldb_memory_out_of_range_test() {
+        let mut machine = MmixMachine::new();
+        machine.gp_regs[1] = MAX_OCTA;
+        machine.gp_regs[2] = 1;
+
+        let slice = unsafe { std::slice::from_raw_parts_mut(machine.memory, MEMORY_SIZE as usize)};
+        slice[0] = 1;
+
+        let instruction = Instruction {
+            op: OpCode::LDB,
+            x: 0,
+            y: 1,
+            z: 2,
+        };
+
+        machine.apply(&instruction);
+        assert_eq!(machine.gp_regs[0], 1);
+    }
+
+    #[test]
+    fn ldb_full_range_number_test() {
+        let mut machine = MmixMachine::new();
+        machine.gp_regs[1] = MAX_OCTA;
+        machine.gp_regs[2] = 1;
+
+        let instruction = Instruction {
+            op: OpCode::LDB,
+            x: 0,
+            y: 1,
+            z: 2,
+        };
+
+        for i in -128 .. 127 {
+            let slice = unsafe { std::slice::from_raw_parts_mut(machine.memory, MEMORY_SIZE as usize)};
+            slice[0] = i as u8;
+            machine.apply(&instruction);
+            assert_eq!(machine.gp_regs[0], i as u64);
+        }
     }
 }
