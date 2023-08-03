@@ -233,7 +233,7 @@ pub mod unittests {
     use super::*;
 
     // Test MmixMachine Initialization
-    #[test] #[ignore] // too expensive
+    #[test] #[ignore] // slightly expensive
     fn initialize_all_to_zero() {
         let machine = MmixMachine::new();
         for i in 0..GENERAL_PURPOSE_REGISTER_COUNT {
@@ -244,8 +244,9 @@ pub mod unittests {
             assert_eq!(machine.sp_regs[i as usize], 0);
         }
 
-        let slice = unsafe { std::slice::from_raw_parts_mut(machine.memory, MEMORY_SIZE as usize) };
-        for i in 0..MEMORY_SIZE {
+        // optimization
+        let slice = unsafe { std::slice::from_raw_parts_mut(machine.memory as *mut u128, (MEMORY_SIZE / 16) as usize) };
+        for i in 0..(MEMORY_SIZE / 16) {
             assert_eq!(slice[i as usize], 0);
         }
     }
