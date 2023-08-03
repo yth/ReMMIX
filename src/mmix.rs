@@ -184,6 +184,7 @@ pub fn apply<'a>(machine: &'a mut MmixMachine, instruction: &'a Instruction) -> 
         OpCode::LDB    => return apply_LDB(machine, instruction),
         OpCode::LDB_I  => return apply_LDB_I(machine, instruction),
         OpCode::LDBU   => return apply_LDBU(machine, instruction),
+        OpCode::LDBU_I => return apply_LDBU_I(machine, instruction),
         _ => panic!("Not implemented!")
     }
 }
@@ -229,6 +230,20 @@ fn apply_LDB_I<'a>(m: &'a mut MmixMachine, i: &'a Instruction) -> &'a mut MmixMa
 fn apply_LDBU<'a>(m: &'a mut MmixMachine, i: &'a Instruction) -> &'a mut MmixMachine {
     let Y = m.gp_regs[i.y as usize];
     let Z = m.gp_regs[i.z as usize];
+    let A = Y.wrapping_add(Z) as usize;
+
+    let slice = unsafe { std::slice::from_raw_parts_mut(m.memory, MEMORY_SIZE as usize)};
+
+    m.gp_regs[i.x as usize] = slice[A] as u64;
+
+    return m;
+}
+
+#[allow(dead_code)]
+#[allow(non_snake_case)]
+fn apply_LDBU_I<'a>(m: &'a mut MmixMachine, i: &'a Instruction) -> &'a mut MmixMachine {
+    let Y = m.gp_regs[i.y as usize];
+    let Z = i.z as u64;
     let A = Y.wrapping_add(Z) as usize;
 
     let slice = unsafe { std::slice::from_raw_parts_mut(m.memory, MEMORY_SIZE as usize)};
@@ -437,6 +452,24 @@ pub mod unittests {
             assert_eq!(machine.gp_regs[0], i as u64);
             assert_eq!(machine.gp_regs[0] as i8, i as i8);
             assert_eq!(machine.gp_regs[0] as i16, i as i16);
+        }
+    }
+
+    #[test]
+    pub fn ldbu_i_full_range_number_test() {
+        let mut machine = MmixMachine::new();
+        for i in 0..(MAX_BYTE as u16 + 1) {
+            let instruction = Instruction {
+                op: OpCode::LDBU_I,
+                x: 0,
+                y: 1,
+                z: i as u8,
+            };
+
+            let slice = unsafe { std::slice::from_raw_parts_mut(machine.memory, MEMORY_SIZE as usize)};
+            slice[i as u8 as usize] = i as u8;
+            machine.apply(&instruction);
+            assert_eq!(machine.gp_regs[0], i as u64);
         }
     }
 }
