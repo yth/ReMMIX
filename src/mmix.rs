@@ -1,27 +1,26 @@
 use std::alloc::{alloc, dealloc, Layout};
-#[allow(unused_imports)] use std::ptr;
 
 // The Machine
-pub const GENERAL_PURPOSE_REGISTER_COUNT: u32 = 256;
-pub const SPECIAL_PURPOSE_REGISTER_COUNT: u32 = 32;
-pub const MEMORY_SIZE: u32 = MAX_TTRA as u32; // 4 GB of main memory
+pub const GENERAL_PURPOSE_REGISTER_COUNT: usize = 256;
+pub const SPECIAL_PURPOSE_REGISTER_COUNT: usize = 32;
+pub const MEMORY_SIZE: usize = MAX_TTRA as usize; // 4 GB of main memory
 
 pub type Register = u64;
 
 pub struct MmixMachine {
-    pub gp_regs: [Register; GENERAL_PURPOSE_REGISTER_COUNT as usize],
-    pub sp_regs: [Register; SPECIAL_PURPOSE_REGISTER_COUNT as usize],
+    pub gp_regs: [Register; GENERAL_PURPOSE_REGISTER_COUNT],
+    pub sp_regs: [Register; SPECIAL_PURPOSE_REGISTER_COUNT],
     pub memory: *mut u8 // [0; usize::MAX] is too big for the architecture
 }
 
 impl MmixMachine {
     pub fn new() -> Self {
-        let layout = Layout::new::<[u8; MAX_TTRA as usize]>();
+        let layout = Layout::new::<[u8; MEMORY_SIZE]>();
 
         unsafe {
             Self {
-                gp_regs: [0; GENERAL_PURPOSE_REGISTER_COUNT as usize],
-                sp_regs: [0; 32],
+                gp_regs: [0; GENERAL_PURPOSE_REGISTER_COUNT],
+                sp_regs: [0; SPECIAL_PURPOSE_REGISTER_COUNT],
                 memory: alloc(layout) // [0; usize::MAX] is too big for the architecture
             }
         }
@@ -35,7 +34,7 @@ impl MmixMachine {
 
 impl Drop for MmixMachine {
     fn drop(&mut self) {
-        unsafe { dealloc(self.memory, Layout::new::<[u8; MAX_TTRA as usize]>()) }
+        unsafe { dealloc(self.memory, Layout::new::<[u8; MEMORY_SIZE]>()) }
     }
 }
 
@@ -184,6 +183,7 @@ pub fn apply<'a>(machine: &'a mut MmixMachine, instruction: &'a Instruction) -> 
         OpCode::ADDU_I => return apply_ADDU_I(machine, instruction),
         OpCode::LDB    => return apply_LDB(machine, instruction),
         OpCode::LDB_I  => return apply_LDB_I(machine, instruction),
+        OpCode::LDBU   => return apply_LDBU(machine, instruction),
         _ => panic!("Not implemented!")
     }
 }
@@ -207,8 +207,6 @@ fn apply_LDB<'a>(m: &'a mut MmixMachine, i: &'a Instruction) -> &'a mut MmixMach
 
     m.gp_regs[i.x as usize] = slice[A] as i8 as i64 as u64;
 
-    println!("A = {}", slice[A]);
-
     return m;
 }
 
@@ -223,7 +221,19 @@ fn apply_LDB_I<'a>(m: &'a mut MmixMachine, i: &'a Instruction) -> &'a mut MmixMa
 
     m.gp_regs[i.x as usize] = slice[A] as i8 as u64;
 
-    println!("A = {}", slice[A]);
+    return m;
+}
+
+#[allow(dead_code)]
+#[allow(non_snake_case)]
+fn apply_LDBU<'a>(m: &'a mut MmixMachine, i: &'a Instruction) -> &'a mut MmixMachine {
+    let Y = m.gp_regs[i.y as usize];
+    let Z = m.gp_regs[i.z as usize];
+    let A = Y.wrapping_add(Z) as usize;
+
+    let slice = unsafe { std::slice::from_raw_parts_mut(m.memory, MEMORY_SIZE as usize)};
+
+    m.gp_regs[i.x as usize] = slice[A] as u64;
 
     return m;
 }
@@ -390,7 +400,6 @@ pub mod unittests {
     #[test]
     pub fn ldb_i_full_range_number_test() {
         let mut machine = MmixMachine::new();
-
         for i in (MIN_S_BYTE as i16)..(MAX_S_BYTE as i16) + 1 {
             let instruction = Instruction {
                 op: OpCode::LDB_I,
@@ -401,6 +410,29 @@ pub mod unittests {
 
             let slice = unsafe { std::slice::from_raw_parts_mut(machine.memory, MEMORY_SIZE as usize)};
             slice[i as u8 as usize] = i as u8;
+            machine.apply(&instruction);
+            assert_eq!(machine.gp_regs[0], i as u64);
+            assert_eq!(machine.gp_regs[0] as i8, i as i8);
+            assert_eq!(machine.gp_regs[0] as i16, i as i16);
+        }
+    }
+
+    #[test]
+    pub fn ldbu_full_range_number_test() {
+        let mut machine = MmixMachine::new();
+        machine.gp_regs[1] = MAX_OCTA;
+        machine.gp_regs[2] = 1;
+
+        let instruction = Instruction {
+            op: OpCode::LDBU,
+            x: 0,
+            y: 1,
+            z: 2,
+        };
+
+        for i in 0..(MAX_BYTE as u16 + 1) {
+            let slice = unsafe { std::slice::from_raw_parts_mut(machine.memory, MEMORY_SIZE as usize)};
+            slice[0] = i as u8;
             machine.apply(&instruction);
             assert_eq!(machine.gp_regs[0], i as u64);
             assert_eq!(machine.gp_regs[0] as i8, i as i8);
